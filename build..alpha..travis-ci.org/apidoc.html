@@ -1,0 +1,248 @@
+<div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a
+
+        href="https://github.com/amrav/restify-jwt"
+
+    >restify-jwt (v0.4.0)</a>
+</h1>
+<h4>JWT authentication middleware.</h4>
+<div class="apidocSectionDiv"><a
+    href="#apidoc.tableOfContents"
+    id="apidoc.tableOfContents"
+><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.restify-jwt">module restify-jwt</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.restify-jwt.restify-jwt">
+            function <span class="apidocSignatureSpan"></span>restify-jwt
+            <span class="apidocSignatureSpan">(options)</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.restify-jwt.toString">
+            function <span class="apidocSignatureSpan">restify-jwt.</span>toString
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.restify-jwt.toString">module restify-jwt.toString</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.restify-jwt.toString.toString">
+            function <span class="apidocSignatureSpan">restify-jwt.</span>toString
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.restify-jwt" id="apidoc.module.restify-jwt">module restify-jwt</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.restify-jwt.restify-jwt" id="apidoc.element.restify-jwt.restify-jwt">
+        function <span class="apidocSignatureSpan"></span>restify-jwt
+        <span class="apidocSignatureSpan">(options)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">restify-jwt = function (options) {
+  if (!options || !options.secret) throw new Error(&#x27;secret should be set&#x27;);
+
+  var secretCallback = options.secret;
+
+  if (!isFunction(secretCallback)){
+    secretCallback = wrapStaticSecretInCallback(secretCallback);
+  }
+
+  var isRevokedCallback = options.isRevoked || DEFAULT_REVOKED_FUNCTION;
+
+  var _requestProperty = options.userProperty || options.requestProperty || &#x27;user&#x27;;
+  var credentialsRequired = typeof options.credentialsRequired === &#x27;undefined&#x27; ? true : options.credentialsRequired;
+
+  var middleware = function(req, res, next) {
+    var token;
+
+    if (req.method === &#x27;OPTIONS&#x27; &#x26;&#x26; req.headers.hasOwnProperty(&#x27;access-control-request-headers&#x27;)) {
+      var hasAuthInAccessControl = !!~req.headers[&#x27;access-control-request-headers&#x27;]
+                                    .split(&#x27;,&#x27;).map(function (header) {
+                                      return header.trim();
+                                    }).indexOf(&#x27;authorization&#x27;);
+
+      if (hasAuthInAccessControl) {
+        return next();
+      }
+    }
+
+    if (options.getToken &#x26;&#x26; typeof options.getToken === &#x27;function&#x27;) {
+      try {
+        token = options.getToken(req);
+      } catch (e) {
+        return next(e);
+      }
+    } else if (req.headers &#x26;&#x26; req.headers.authorization) {
+      var parts = req.headers.authorization.split(&#x27; &#x27;);
+      if (parts.length == 2) {
+        var scheme = parts[0];
+        var credentials = parts[1];
+
+        if (/^Bearer$/i.test(scheme)) {
+          token = credentials;
+        } else {
+          return next(new restify.InvalidCredentialsError(&#x27;Format is Authorization: Bearer [token]&#x27;));
+        }
+      } else {
+        return next(new restify.InvalidCredentialsError(&#x27;Format is Authorization: Bearer [token]&#x27;));
+      }
+    }
+
+    if (!token) {
+      if (credentialsRequired) {
+        return next(new restify.InvalidCredentialsError(&#x27;No authorization token was found&#x27;));
+      } else {
+        return next();
+      }
+    }
+
+    var dtoken = jwt.decode(token, { complete: true }) || {};
+
+    async.parallel([
+      function(callback){
+        var arity = secretCallback.length;
+        if (arity == 4) {
+          secretCallback(req, dtoken.header, dtoken.payload, callback);
+        } else { // arity == 3
+          secretCallback(req, dtoken.payload, callback);
+        }
+      },
+      function(callback){
+        isRevokedCallback(req, dtoken.payload, callback);
+      }
+    ], function(err, results){
+      if (err) { return next(err); }
+      var revoked = results[1];
+      if (revoked){
+        return next(new restify.UnauthorizedError(&#x27;The token has been revoked.&#x27;));
+      }
+
+      var secret = results[0];
+
+      jwt.verify(token, secret, options, function(err, decoded) {
+        if (err &#x26;&#x26; credentialsRequired) return next(new restify.InvalidCredentialsError(err));
+
+        req[_requestProperty] = decoded;
+        next();
+      });
+    });
+  };
+
+  middleware.unless = unless;
+
+  return middleware;
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.restify-jwt.toString" id="apidoc.element.restify-jwt.toString">
+        function <span class="apidocSignatureSpan">restify-jwt.</span>toString
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">toString = function () {
+    return text;
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.restify-jwt.toString" id="apidoc.module.restify-jwt.toString">module restify-jwt.toString</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.restify-jwt.toString.toString" id="apidoc.element.restify-jwt.toString.toString">
+        function <span class="apidocSignatureSpan">restify-jwt.</span>toString
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function toString() { [native code] }</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
