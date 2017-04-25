@@ -1,4 +1,7 @@
-# api documentation for  [restify-jwt (v0.4.0)](https://github.com/amrav/restify-jwt)  [![npm package](https://img.shields.io/npm/v/npmdoc-restify-jwt.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-restify-jwt) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-restify-jwt.svg)](https://travis-ci.org/npmdoc/node-npmdoc-restify-jwt)
+# npmdoc-restify-jwt
+
+#### basic api documentation for  [restify-jwt (v0.4.0)](https://github.com/amrav/restify-jwt)  [![npm package](https://img.shields.io/npm/v/npmdoc-restify-jwt.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-restify-jwt) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-restify-jwt.svg)](https://travis-ci.org/npmdoc/node-npmdoc-restify-jwt)
+
 #### JWT authentication middleware.
 
 [![NPM](https://nodei.co/npm/restify-jwt.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/restify-jwt)
@@ -80,7 +83,8 @@
     "scripts": {
         "test": "mocha --reporter spec"
     },
-    "version": "0.4.0"
+    "version": "0.4.0",
+    "bin": {}
 }
 ```
 
